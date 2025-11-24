@@ -29,7 +29,7 @@ class MaxPoolingLayer:
         # Shape of patchesMax is (batch, outHeight, outWidth, 1, numFilters)
         patchesMax = self.patches.max(axis=3,keepdims=True)
 
-        # Make a mask to select indicies where the pixel is max of that patch. 4rd dimension broadcasts to filterSize*filterSize
+        # Make a mask to select indicies where the pixel is max of that patch. 4th dimension broadcasts to filterSize*filterSize
         mask = (patchesMax == self.patches)
 
         # Add axis to make gradient broadcast with mask: (batch, outHeight, outWidth, numFilters) -> (batch, outHeight, outWidth, 1, numFilters)
@@ -106,6 +106,36 @@ class ConvolutionLayer:
 
         return dE_dX
 
+
+class DenseLayer:
+    def __init__(self, inputDim, outputDim):
+        self.weights = np.random.randn(outputDim, inputDim)  * np.sqrt(2 / (inputDim))
+        # Add axis so bias broadcasts in the batch dimension
+        self.bias = np.random.randn(1, outputDim)
+    
+    def forward(self, input):
+        self.input = input
+
+        # Weight each input dimension by the corresponding weight dimension and add bias
+        return input @ self.weights.T + self.bias
+    
+    def backward(self, dE_dY, lr):
+        batch = dE_dY.shape[0]
+
+        # Gradient of weight
+        dE_dW = dE_dY.T @ self.input / batch
+
+        # Gradient of input
+        dE_dX = dE_dY @ self.weights
+
+        # Gradient of bias
+        dE_dB = np.sum(dE_dY, axis=0, keepdims=True) / batch
+
+        self.weights -= dE_dW * lr
+        self.bias -= dE_dB * lr
+
+        return dE_dX
+    
 
 
     
