@@ -9,9 +9,10 @@ def backwardProp(network, gradient):
         gradient = layer.backward(gradient)
     return gradient
 
-def trainCNN(network, loss, lossGradient, xTrain, yTrain, epochs = 5, verbose = True):
+def trainCNN(network, loss, lossGradient, xTrain, yTrain, epochs = 5):
     for epoch in range(epochs):     
         prediction = forwardProp(network, xTrain)
+        prediction = prediction.argmax(axis=1)
 
         error = loss(prediction, yTrain)
 

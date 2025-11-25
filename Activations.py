@@ -1,9 +1,6 @@
 import numpy as np
 
 class ReLu:
-    def __init__(self):
-        pass
-    
     def forward(self, input):
         self.input = input
         return np.maximum(0, input)
@@ -12,9 +9,6 @@ class ReLu:
         return (self.input > 0) * gradient
     
 class SoftMax:
-    def __init__(self):
-        pass
-    
     def forward(self, input):
         ex = np.exp(input - np.max(input, axis=1, keepdims=True))
         self.output = ex / np.sum(ex, axis=1, keepdims=True)
