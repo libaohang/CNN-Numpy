@@ -6,14 +6,27 @@ class MaxPoolingLayer:
 
     def forward(self, image):
         self.image = image
-        batch, height, width, numFilters = image.shape
-        outHeight = height // self.filterSize
-        outWidth = width // self.filterSize
+        # channels = numFilters of previous convolution layer
+        batch, height, width, channels = image.shape
+        
+        # Pad images if not evenly fit by pooling size
+        heightPad = height % self.filterSize
+        widthPad = width % self.filterSize
+        if(heightPad != 0 or widthPad != 0):
+            image = np.pad(
+                image,
+                pad_width = ((0, 0), (heightPad, 0), (widthPad, 0), (0, 0)),
+                mode = 'constant',
+                constant_values = 0
+            )
+        
+        outHeight = (height + heightPad) // self.filterSize
+        outWidth = (width + widthPad) // self.filterSize
 
         # Organize the image into outHeight*outWidth matrix with each index being a vector of filterSize*filterSize pixels
-        patches = image.reshape(batch, outHeight, self.filterSize, outWidth, self.filterSize, numFilters)
+        patches = image.reshape(batch, outHeight, self.filterSize, outWidth, self.filterSize, channels)
         patches = patches.transpose(0, 1, 3, 2, 4, 5)
-        patches = patches.reshape(batch, outHeight, outWidth, self.filterSize ** 2, numFilters)
+        patches = patches.reshape(batch, outHeight, outWidth, self.filterSize ** 2, channels)
         self.patches = patches
 
         # Get the max of each of each filterSize*filterSize pixel patches
@@ -22,11 +35,13 @@ class MaxPoolingLayer:
         return patchesMax
     
     def backward(self, dE_dY):
-        batch, height, width, numFilters = self.image.shape
-        outHeight = height // self.filterSize
-        outWidth = width // self.filterSize
+        batch, height, width, channels= self.image.shape
+        heightPad = height % self.filterSize
+        widthPad = width % self.filterSize
+        outHeight = (height + heightPad) // self.filterSize
+        outWidth = (width + widthPad) // self.filterSize
 
-        # Shape of patchesMax is (batch, outHeight, outWidth, 1, numFilters)
+        # patchesMax -> (batch, outHeight, outWidth, 1, channels)
         patchesMax = self.patches.max(axis=3,keepdims=True)
 
         # Make a mask to select indicies where the pixel is max of that patch. 4th dimension broadcasts to filterSize*filterSize
@@ -39,18 +54,24 @@ class MaxPoolingLayer:
         dE_dX = dE_dY * mask
 
         # Reshape into original shape
-        dE_dX = dE_dX.reshape(batch, outHeight, outWidth, self.filterSize, self.filterSize, numFilters)
+        dE_dX = dE_dX.reshape(batch, outHeight, outWidth, self.filterSize, self.filterSize, channels)
         dE_dX = dE_dX.transpose(0, 1, 3, 2, 4, 5)
-        dE_dX = dE_dX.reshape(batch, height, width, numFilters)
+        dE_dX = dE_dX.reshape(batch, height + heightPad, width + widthPad, channels)
+
+        # Remove padding
+        if(heightPad != 0 or widthPad != 0):
+            dE_dX = dE_dX[:, heightPad:, widthPad:, :]
 
         return dE_dX
     
     
 class ConvolutionLayer:
-    def __init__(self, filterSize, numFilters, lr, beta):
+    # channels need to be the numFilters of previous ConvolutionLayer if any or the original channels of sample
+    def __init__(self, filterSize, numFilters, channels, lr, beta):
         self.filterSize = filterSize
         self.numFilters = numFilters
-        self.filters = np.random.randn(numFilters, filterSize, filterSize) * np.sqrt(2 / (filterSize ** 2))
+        self.channels = channels
+        self.filters = np.random.randn(numFilters, channels, filterSize, filterSize) * np.sqrt(2 / (channels * filterSize * filterSize))
         # Momentum for filters
         self.v_filters = np.zeros_like(self.filters)
         self.beta = beta
@@ -60,22 +81,22 @@ class ConvolutionLayer:
         self.image = image
         filterSize = self.filterSize
 
-        batch, height, width = image.shape
+        batch, height, width, channels = image.shape
         outHeight = height - filterSize + 1
         outWidth = width - filterSize + 1
 
-        bs, hs, ws = image.strides
+        bs, hs, ws, cs = image.strides
         # Get a representation of each patch of image of stride 1 to be multiplied with filter
         self.stridedView = np.lib.stride_tricks.as_strided(
             image,
-            shape=(batch, outHeight, outWidth, filterSize, filterSize),
-            strides=(bs, hs, ws, hs, ws)
+            shape=(batch, outHeight, outWidth, channels, filterSize, filterSize),
+            strides=(bs, hs, ws, cs, hs, ws)
         )
 
-        # Dot product between filterSize, filterSize dimensions of the filters and patches
-        # stridedView     -> (batch, outHeight, outWidth, filterSize, filterSize)
-        # filters         -> (numFilters, filterSize, filterSize)
-        convolution = np.tensordot(self.stridedView, self.filters, axes=([3,4],[1,2]))
+        # Dot product between channels, filterSize, filterSize dimensions of the filters and patches
+        # stridedView     -> (batch, outHeight, outWidth, channels, filterSize, filterSize)
+        # filters         -> (numFilters, channels, filterSize, filterSize)
+        convolution = np.tensordot(self.stridedView, self.filters, axes=([3,4,5],[1,2,3]))
         
         # convolution: (batch, outHeight, outWidth, numFilter)
         return convolution
@@ -87,28 +108,30 @@ class ConvolutionLayer:
         width = outWidth + filterSize - 1
 
         # Compute gradient for filters
-        # stridedView     -> (batch, outHeight, outWidth, 1, filterSize, filterSize)
-        # dE_dY           -> (batch, outHeight, outWidth, numFilters, 1, 1)
-        dE_dK = (self.stridedView[:, :, :, None, :, :] * dE_dY[:, :, :, :, None, None]).sum(axis=(0,1,2))
+        # stridedView     -> (batch, outHeight, outWidth, 1, channels, filterSize, filterSize)
+        # dE_dY           -> (batch, outHeight, outWidth, numFilters, 1, 1, 1)
+        dE_dK = (self.stridedView[:, :, :, None, :, :, :] * dE_dY[:, :, :, :, None, None, None]).sum(axis=(0,1,2))
 
         self.v_filters = self.beta * self.v_filters + (1 - self.beta) * dE_dK
         self.filters -= self.v_filters * self.lr
 
         # Reverse the height and width dimensions of filters
-        filtersFlipped = self.filters[:, ::-1, ::-1]
+        filtersFlipped = self.filters[:, :, ::-1, ::-1]
 
         # Calculate gradient respect to columns
         # dE_dY           -> (batch, outHeight, outWidth, numFilters)
-        # filtersFlipped  -> (numFilters, filterSize, filterSize)
+        # filtersFlipped  -> (numFilters, channels, filterSize, filterSize)
         dE_dColumns = np.tensordot(dE_dY, filtersFlipped, axes=([3], [0]))
-        # dE_dColumn: (batch, outHeight, outWidth, filterSize, filterSize)
+        # dE_dColumn: (batch, outHeight, outWidth, channels, filterSize, filterSize)
+        dE_dColumns = dE_dColumns.transpose(0, 1, 2, 4, 5, 3)
+        # dE_dColumn: (batch, outHeight, outWidth, filterSize, filterSize, channels)
         
-        dE_dX = np.zeros((batch, height, width))
+        dE_dX = np.zeros((batch, height, width, self.channels))
 
         # Update dE_dX by adding the gradients of each patch
         for y in range(filterSize):
             for x in range(filterSize):
-                dE_dX[:, y:y+outHeight, x:x+outWidth] += dE_dColumns[:, :, :, y, x]
+                dE_dX[:, y:y+outHeight, x:x+outWidth, :] += dE_dColumns[:, :, :, y, x, :]
 
         return dE_dX
 

@@ -13,31 +13,53 @@ def cross_entropy_prime(true, pred):
     y[np.arange(len(pred)), true] = 1
     return (pred - y) / len(pred)
 
-def firstModel():
+# Networks for MNIST:
+
+# network1 reach 95% test accuracy after 20 epochs
+network1 = [                              # 28 x 28 x 1
+    ConvolutionLayer(3, 4, 1, 0.1, 0.9),  # 26 x 26 x 4
+    ReLu(),
+    MaxPoolingLayer(2),                   # 13 x 13 x 4
+    FlattenLayer(),
+    DenseLayer(676, 128, 0.1, 0.9),     
+    ReLu(),
+    DenseLayer(128, 10, 0.1, 0.9),
+    SoftMax()
+]
+
+network2 = [                              # 28 x 28 x 1
+    ConvolutionLayer(3, 4, 1, 0.1, 0.9),  # 26 x 26 x 4
+    ReLu(),
+    MaxPoolingLayer(2),                   # 13 x 13 x 4
+    ReLu(),
+    ConvolutionLayer(3, 5, 4, 0.1, 0.9),  # 11 x 11 x 5
+    ReLu(),
+    MaxPoolingLayer(2),                   # 6 x 6 x 5
+    FlattenLayer(),
+    DenseLayer(180, 150 , 0.1, 0.9),
+    ReLu(),
+    DenseLayer(150, 10, 0.1, 0.9),
+    SoftMax()
+
+]
+
+def classifyMNIST(network):
 
     (xTrain, yTrain), (xTest, yTest) = mnist.load_data()
 
     xTrain = xTrain.astype(np.float32) / 255.0
     xTest  = xTest.astype(np.float32) / 255.0
 
-    network = [                        # 28 x 28
-        ConvolutionLayer(3, 4, 0.1, 0.9),  # 26 x 26 x 4
-        ReLu(),
-        MaxPoolingLayer(2),            # 13 x 13 x 4
-        FlattenLayer(),
-        DenseLayer(676, 128, 0.1, 0.9),     
-        ReLu(),
-        DenseLayer(128, 10, 0.1, 0.9),
-        SoftMax()
-    ]
+    xTrain = xTrain[:, :, :, None]
+    xTest = xTest[:, :, :, None]
 
-    trainedNetwork = trainCNN(network, cross_entropy, cross_entropy_prime, xTrain, yTrain, 20, 50)
+    trainedNetwork = trainCNN(network, cross_entropy, cross_entropy_prime, xTrain, yTrain, 25, 40)
 
     testCNN(trainedNetwork, cross_entropy, xTest, yTest)
 
-    return trainedNetwork
+    gui = DigitGUI(trainedNetwork)
+    gui.run()
+
 
 if __name__ == '__main__':
-    model = firstModel()
-    gui = DigitGUI(model)
-    gui.run()
+    classifyMNIST(network2)

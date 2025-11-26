@@ -87,7 +87,7 @@ class DigitGUI:
         img = ImageGrab.grab().crop((x, y, x2, y2))
 
         # Preprocess and predict
-        inp = self.preprocess(img)
+        inp = self.preprocess(img)[:, :, : , None]
         pred = predict(self.model, inp).argmax()
 
         self.label.config(text=f"Prediction: {pred}")
