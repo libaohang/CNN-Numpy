@@ -1,3 +1,4 @@
+import numpy as np
 
 def forwardProp(network, images):
     for layer in network:
@@ -9,22 +10,38 @@ def backwardProp(network, gradient):
         gradient = layer.backward(gradient)
     return gradient
 
-def trainCNN(network, loss, lossGradient, xTrain, yTrain, epochs = 5):
-    for epoch in range(epochs):     
-        prediction = forwardProp(network, xTrain)
-        prediction = prediction.argmax(axis=1)
+def trainCNN(network, loss, lossGradient, xTrain, yTrain, epochs = 5, batchSize = 100):
+    sampleSize = xTrain.shape[0]
 
-        error = loss(prediction, yTrain)
+    for epoch in range(epochs):
+        epochLoss = 0
 
-        backwardProp(network, lossGradient(prediction, yTrain))
+        indices = np.random.permutation(sampleSize)
+        xTrain = xTrain[indices]
+        yTrain = yTrain[indices]
 
-        print(f"Training error on epoch {epoch} is {error}")
+        for batch in range(0, sampleSize, batchSize):   
+            batchX = xTrain[batch : batch + batchSize]
+            batchY = yTrain[batch : batch + batchSize]
+
+            prediction = forwardProp(network, batchX)
+
+            epochLoss += loss(batchY, prediction)
+
+            gradient = lossGradient(batchY, prediction)
+            backwardProp(network, gradient)
+
+        epochLoss /= (sampleSize / batchSize)
+        print(f"Training error on epoch {1 + epoch} is {np.mean(epochLoss)}")
     
     return network
 
 def testCNN(network, loss, xTest, yTest):
     prediction = forwardProp(network, xTest)
 
-    error = loss(prediction, yTest)
+    error = loss(yTest, prediction)
 
-    print(f"Testing error is {error}")
+    predictions = prediction.argmax(axis=1)
+    accuracy = np.mean(predictions == yTest)
+
+    print(f"Testing error is {np.mean(error)}, with accuracy of {accuracy}")

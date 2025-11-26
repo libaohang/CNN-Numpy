@@ -47,10 +47,13 @@ class MaxPoolingLayer:
     
     
 class ConvolutionLayer:
-    def __init__(self, filterSize, numFilters, lr):
+    def __init__(self, filterSize, numFilters, lr, beta):
         self.filterSize = filterSize
         self.numFilters = numFilters
         self.filters = np.random.randn(numFilters, filterSize, filterSize) * np.sqrt(2 / (filterSize ** 2))
+        # Momentum for filters
+        self.v_filters = np.zeros_like(self.filters)
+        self.beta = beta
         self.lr = lr
 
     def forward(self, image):
@@ -88,7 +91,8 @@ class ConvolutionLayer:
         # dE_dY           -> (batch, outHeight, outWidth, numFilters, 1, 1)
         dE_dK = (self.stridedView[:, :, :, None, :, :] * dE_dY[:, :, :, :, None, None]).sum(axis=(0,1,2))
 
-        self.filters -= dE_dK * self.lr
+        self.v_filters = self.beta * self.v_filters + (1 - self.beta) * dE_dK
+        self.filters -= self.v_filters * self.lr
 
         # Reverse the height and width dimensions of filters
         filtersFlipped = self.filters[:, ::-1, ::-1]
@@ -110,11 +114,18 @@ class ConvolutionLayer:
 
 
 class DenseLayer:
-    def __init__(self, inputDim, outputDim, lr):
+    def __init__(self, inputDim, outputDim, lr, beta):
         self.weights = np.random.randn(outputDim, inputDim)  * np.sqrt(2 / (inputDim))
         # Add axis so bias broadcasts in the batch dimension
         self.bias = np.random.randn(1, outputDim)
+
+        # Momentum for weights and bias
+        self.v_w = np.zeros_like(self.weights)
+        self.v_b = np.zeros_like(self.bias)
+
+        self.beta = beta
         self.lr = lr
+
     
     def forward(self, input):
         self.input = input
@@ -134,8 +145,11 @@ class DenseLayer:
         # Gradient of bias
         dE_dB = np.sum(dE_dY, axis=0, keepdims=True) / batch
 
-        self.weights -= dE_dW * self.lr
-        self.bias -= dE_dB * self.lr
+        self.v_w = self.beta * self.v_w + (1 - self.beta) * dE_dW
+        self.v_b = self.beta * self.v_b + (1 - self.beta) * dE_dB
+
+        self.weights -= self.v_w * self.lr
+        self.bias -= self.v_b * self.lr
 
         return dE_dX
     
