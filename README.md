@@ -4,14 +4,14 @@
 
 ## Description and Purpose
 __A convolutional neural network with all layers implemented using only Numpy__ <br>
-I wanted to develop a clearer understanding of how convolution layers process data, so I decided to implement each component of it using Numpy without built-in layers from libraries
+I wanted to develop a clearer understanding of how convolution layers process data, so I decided to implement each component of it using Numpy without built-in layers from libraries.
 <br>
 
 ## Classifying MNIST and CIFAR-10 Datasets
-Using the layers I wrote in Numpy, I built 3 different networks of increasing complexity. I used the first 2 networks to classify MNIST, and the 3rd network to classify CIFAR-10<br>
-For context, MNIST is a dataset of grayscale images of handwritten numbers 0 to 9, and CIFAR is a dataset of colored images of 10 types of objects, such as birds, planes, trucks, etc<br>
+Using the layers I wrote in Numpy, I built 3 different networks of increasing complexity. I used the first 2 networks to classify MNIST, and the 3rd network to classify CIFAR-10. <br>
+For context, MNIST is a dataset of grayscale images of handwritten numbers 0 to 9, and CIFAR is a dataset of colored images of 10 types of objects, such as birds, planes, trucks, etc. <br>
 The details on each network and their performance on the datasets are described below: <br>
-Note: errors are calculated using cross-entropy loss<br>
+Note: errors are calculated using cross-entropy loss. <br>
 
 ### Network 1
 Network 1 has a total of 1 convolution layer and 4 filters: Convo(4) -> ReLu -> MaxPool -> Flatten -> Dense -> ReLu -> Dense -> SoftMax<br>
@@ -33,7 +33,7 @@ __Key:__ <br>
 Green line: error on each epoch<br>
 Red line: final test error after 30 epochs<br>
 <br>
-Network 2 achieves a test error of 0.07, which is equivalent to **97.8% accuracy** on MNIST. The learning curve is noticeably steeper with 2 convolution layers and more filters. With even more convolution layers, I would be able to reach 99% or more on MNIST, but I decided to move on to classifying CIFAR-10<br>
+Network 2 achieves a test error of 0.07, which is equivalent to **97.8% accuracy** on MNIST. The learning curve is noticeably steeper with 2 convolution layers and more filters. With even more convolution layers, I would be able to reach 99% or more on MNIST, but I decided to move on to classifying CIFAR-10. <br>
 
 <br>
 
@@ -95,9 +95,15 @@ Track the size of height, width, and channel dimensions through each layer using
 * Flatten layer reduces height, width, and channel dimensions to a single dimension with size equal to the product of the size of height, width, and channel of the input. 
 
 Finalize parameters of layers: <br>
-- The _inputDim_ parameter of the dense layer that follows flatten is the size of (height x width x channel) of the output of layer before flatten 
-- The _outputDim_ parameter of the last dense layer is 10 to correspond to the 10 classes 
+- The _inputDim_ parameter of the dense layer that follows flatten is the size of (height x width x channel) of the output of layer before flatten.
+- The _outputDim_ parameter of the last dense layer is 10 to correspond to the 10 classes. 
 
+<br>
+
+## References Used
+- The Independent Code, video: https://www.youtube.com/watch?v=Lakz2MoHy6o, code: https://github.com/TheIndependentCode/Neural-Network. Referenced the general structure of the convolution layer and dense layer, training and testing function.
+- Riccardo Andreoni, article: https://towardsdatascience.com/build-a-convolutional-neural-network-from-scratch-using-numpy-139cbbf3c45e/, code: https://github.com/riccardoandreoni0/CNN-from-scratch. Referenced max pooling layer implementation and general network structure.
+- ChatGPT, for checking the correctness of vectorization.
 
 
 
